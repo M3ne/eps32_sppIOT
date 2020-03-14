@@ -1,4 +1,5 @@
-
+#ifndef COMMON_H
+#define COMMON_H
 /*
  * DEFINES
  ****************************************************************************************
@@ -74,7 +75,7 @@ static uint8_t heart_rate_service_uuid[16] = {
     0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x18, 0x0D, 0x00, 0x00,
 };
 
-static esp_ble_adv_data_t heart_rate_adv_config = {
+/*static esp_ble_adv_data_t heart_rate_adv_config = {
     .set_scan_rsp = false,
     .include_name = true,
     .include_txpower = true,
@@ -110,7 +111,7 @@ struct gatts_profile_inst {
  ****************************************************************************************
  */
 
-/// Heart Rate Sensor Service
+// Heart Rate Sensor Service
 static const uint16_t heart_rate_svc = ESP_GATT_UUID_HEART_RATE_SVC;
 
 #define CHAR_DECLARATION_SIZE   (sizeof(uint8_t))
@@ -179,3 +180,6 @@ static const esp_gatts_attr_db_t heart_rate_gatt_db[HRS_IDX_NB] =
     {{ESP_GATT_AUTO_RSP}, {ESP_UUID_LEN_16, (uint8_t *)&heart_rate_ctrl_point, ESP_GATT_PERM_WRITE|ESP_GATT_PERM_READ,
       sizeof(uint8_t), sizeof(heart_ctrl_point), (uint8_t *)heart_ctrl_point}},  
 };
+*/
+
+#endif

@@ -51,7 +51,6 @@ struct gattc_profile_inst {
     uint16_t char_handle;
     esp_bd_addr_t remote_bda;
 };
-
 enum{
     SPP_IDX_SVC,
 

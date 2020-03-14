@@ -1,5 +1,5 @@
-// #ifndef CT_SENSOR_H
-// #define CT_SENSOR_H
+#ifndef CT_SENSOR_H
+#define CT_SENSOR_H
 
 // #include <stdio.h>
 // #include <stdint.h>
@@ -93,4 +93,4 @@
 //   void _delete_buffers();
 
 
-// #endif
+#endif

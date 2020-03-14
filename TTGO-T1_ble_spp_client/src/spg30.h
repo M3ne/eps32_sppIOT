@@ -1,4 +1,5 @@
-
+#ifndef SPG30_H
+#define SPG30_H
 #include "esp_err.h"
 #include "peripheral.h"
 #include <stdio.h>
@@ -23,3 +24,5 @@ esp_err_t spg30_getIAQBaseline(i2c_port_t i2c_num, uint16_t *eco2_base, uint16_t
 esp_err_t spg30_IAQmeasureRaw(i2c_port_t i2c_num, uint16_t *rawEthanol, uint16_t *rawH2);
 esp_err_t spg30_setIAQBaseline(i2c_port_t i2c_num, uint16_t eco2_base, uint16_t tvoc_base);
 esp_err_t spg30_setHumidity(i2c_port_t i2c_num, uint32_t absolute_humidity);
+
+#endif
