@@ -11,66 +11,8 @@
 *
 ****************************************************************************/
 
-#include <stdint.h>
-#include <string.h>
-#include <stdbool.h>
-#include <stdio.h>
-#include "driver/uart.h"
-
 #include "common.h"
-#include "soc/rtc_wdt.h"
-#include "soc/timer_group_reg.h"
 
-#include "esp_bt.h"
-#include "nvs_flash.h"
-#include "esp_bt_device.h"
-#include "esp_gap_ble_api.h"
-#include "esp_gattc_api.h"
-#include "esp_gatt_defs.h"
-#include "esp_bt_main.h"
-#include "esp_system.h"
-#include "esp_gatt_common_api.h"
-#include "esp_log.h"
-#include "freertos/FreeRTOS.h"
-
-#define GATTC_TAG                   "GATTC_SPP_DEMOclient:"
-#define PROFILE_NUM                 1
-#define PROFILE_APP_ID              0
-#define BT_BD_ADDR_STR              "%02x:%02x:%02x:%02x:%02x:%02x"
-#define BT_BD_ADDR_HEX(addr)        addr[0],addr[1],addr[2],addr[3],addr[4],addr[5]
-#define ESP_GATT_SPP_SERVICE_UUID   0xABF0
-#define SCAN_ALL_THE_TIME           0
-
-struct gattc_profile_inst {
-    esp_gattc_cb_t gattc_cb;
-    uint16_t gattc_if;
-    uint16_t app_id;
-    uint16_t conn_id;
-    uint16_t service_start_handle;
-    uint16_t service_end_handle;
-    uint16_t char_handle;
-    esp_bd_addr_t remote_bda;
-};
-enum{
-    SPP_IDX_SVC,
-
-    SPP_IDX_SPP_DATA_RECV_VAL,
-
-    SPP_IDX_SPP_DATA_NTY_VAL,
-    SPP_IDX_SPP_DATA_NTF_CFG,
-
-    SPP_IDX_SPP_COMMAND_VAL,
-
-    SPP_IDX_SPP_STATUS_VAL,
-    SPP_IDX_SPP_STATUS_CFG,
-
-#ifdef SUPPORT_HEARTBEAT
-    SPP_IDX_SPP_HEARTBEAT_VAL,
-    SPP_IDX_SPP_HEARTBEAT_CFG,
-#endif
-
-    SPP_IDX_NB,
-};
 
 ///Declare static functions
 static void esp_gap_cb(esp_gap_ble_cb_event_t event, esp_ble_gap_cb_param_t *param);
@@ -81,11 +23,13 @@ static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
 
 i2c_port_t i2c_port;
 uint16_t TVCO, eCO2;
-uint16_t heart_rate_handle_table[HRS_IDX_NB];
+float temperature;
+//uint16_t heart_rate_handle_table[HRS_IDX_NB];
 
 const int loopTimeCtl = 0;
-TaskHandle_t task_i2c;
+TaskHandle_t task_measure;
 TaskHandle_t task_gpio;
+TaskHandle_t task_comm;
 
 
 /* One gatt-based profile one app_id and one gattc_if, this array will store the gattc_if returned by ESP_GATTS_REG_EVT */
@@ -121,11 +65,6 @@ static esp_gattc_db_elem_t *db = NULL;
 static esp_ble_gap_cb_param_t scan_rst;
 static xQueueHandle cmd_reg_queue = NULL;
 QueueHandle_t spp_uart_queue = NULL;
-
-#ifdef SUPPORT_HEARTBEAT
-static uint8_t  heartbeat_s[9] = {'E','s','p','r','e','s','s','i','f'};
-static xQueueHandle cmd_heartbeat_queue = NULL;
-#endif
 
 static esp_bt_uuid_t spp_service_uuid = {
     .len  = ESP_UUID_LEN_16,
@@ -320,8 +259,7 @@ static void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp
     } while (0);
 }
 
-static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param)
-{
+static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param){
     esp_ble_gattc_cb_param_t *p_data = (esp_ble_gattc_cb_param_t *)param;
 
     switch (event) {
@@ -401,16 +339,6 @@ static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
             xQueueSend(cmd_reg_queue, &cmd,10/portTICK_PERIOD_MS);
             break;
         case SPP_IDX_SPP_STATUS_VAL:
-#ifdef SUPPORT_HEARTBEAT
-            cmd = SPP_IDX_SPP_HEARTBEAT_VAL;
-            xQueueSend(cmd_reg_queue, &cmd, 10/portTICK_PERIOD_MS);
-#endif
-            break;
-#ifdef SUPPORT_HEARTBEAT
-        case SPP_IDX_SPP_HEARTBEAT_VAL:
-            xQueueSend(cmd_heartbeat_queue, &cmd, 10/portTICK_PERIOD_MS);
-            break;
-#endif
         default:
             break;
         };
@@ -469,8 +397,7 @@ static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
     }
 }
 
-void spp_client_reg_task(void* arg)
-{
+void spp_client_reg_task(void* arg){
     uint16_t cmd_id;
     for(;;) {
         vTaskDelay(100 / portTICK_PERIOD_MS);
@@ -483,47 +410,13 @@ void spp_client_reg_task(void* arg)
                     //ESP_LOGI(GATTC_TAG,"Index = %d,UUID = 0x%04x, handle = %d \n", cmd_id, (db+SPP_IDX_SPP_STATUS_VAL)->uuid.uuid.uuid16, (db+SPP_IDX_SPP_STATUS_VAL)->attribute_handle);
                     esp_ble_gattc_register_for_notify(spp_gattc_if, gl_profile_tab[PROFILE_APP_ID].remote_bda, (db+SPP_IDX_SPP_STATUS_VAL)->attribute_handle);
                 }
-#ifdef SUPPORT_HEARTBEAT
-                else if(cmd_id == SPP_IDX_SPP_HEARTBEAT_VAL){
-                    ESP_LOGI(GATTC_TAG,"Index = %d,UUID = 0x%04x, handle = %d \n", cmd_id, (db+SPP_IDX_SPP_HEARTBEAT_VAL)->uuid.uuid.uuid16, (db+SPP_IDX_SPP_HEARTBEAT_VAL)->attribute_handle);
-                    esp_ble_gattc_register_for_notify(spp_gattc_if, gl_profile_tab[PROFILE_APP_ID].remote_bda, (db+SPP_IDX_SPP_HEARTBEAT_VAL)->attribute_handle);
-                }
-#endif
             }
         }
     }
 }
 
-#ifdef SUPPORT_HEARTBEAT
-void spp_heart_beat_task(void * arg)
-{
-    uint16_t cmd_id;
 
-    for(;;) {
-        vTaskDelay(50 / portTICK_PERIOD_MS);
-        if(xQueueReceive(cmd_heartbeat_queue, &cmd_id, portMAX_DELAY)) {
-            while(1){
-                if((is_connect == true) && (db != NULL) && ((db+SPP_IDX_SPP_HEARTBEAT_VAL)->properties & (ESP_GATT_CHAR_PROP_BIT_WRITE_NR | ESP_GATT_CHAR_PROP_BIT_WRITE))){
-                    esp_ble_gattc_write_char( spp_gattc_if,
-                                              spp_conn_id,
-                                              (db+SPP_IDX_SPP_HEARTBEAT_VAL)->attribute_handle,
-                                              sizeof(heartbeat_s),
-                                              (uint8_t *)heartbeat_s,
-                                              ESP_GATT_WRITE_TYPE_RSP,
-                                              ESP_GATT_AUTH_REQ_NONE);
-                    vTaskDelay(5000 / portTICK_PERIOD_MS);
-                }else{
-                    ESP_LOGI(GATTC_TAG,"disconnect\n");
-                    break;
-                }
-            }
-        }
-    }
-}
-#endif
-
-void ble_client_appRegister(void)
-{
+void ble_client_appRegister(void){
     esp_err_t status;
     char err_msg[20];
 
@@ -548,54 +441,18 @@ void ble_client_appRegister(void)
 
     cmd_reg_queue = xQueueCreate(10, sizeof(uint32_t));
     xTaskCreate(spp_client_reg_task, "spp_client_reg_task", 2048, NULL, 10, NULL);
-
-#ifdef SUPPORT_HEARTBEAT
-    cmd_heartbeat_queue = xQueueCreate(10, sizeof(uint32_t));
-    xTaskCreate(spp_heart_beat_task, "spp_heart_beat_task", 2048, NULL, 10, NULL);
-#endif
 }
 
-void uart_task(void *pvParameters)
-{
-    uart_event_t event;
-    for (;;) {
-        //Waiting for UART event.
-        // if (xQueueReceive(spp_uart_queue, (void * )&event, (portTickType)portMAX_DELAY)) {
-        //     switch (event.type) {
-        //     //Event of UART receving data
-        //     case UART_DATA:
-        //         if (event.size && (is_connect == true) && (db != NULL) && ((db+SPP_IDX_SPP_DATA_RECV_VAL)->properties & (ESP_GATT_CHAR_PROP_BIT_WRITE_NR | ESP_GATT_CHAR_PROP_BIT_WRITE))) {
-        //             uint8_t * temp = NULL;
-        //             temp = (uint8_t *)malloc(sizeof(uint8_t)*event.size);
-        //             if(temp == NULL){
-        //                 ESP_LOGE(GATTC_TAG, "malloc failed,%s L#%d\n", __func__, __LINE__);
-        //                 break;
-        //             }
-        //             memset(temp, 0x0, event.size);
-        //             // uart_read_bytes(UART_NUM_0,temp,event.size,portMAX_DELAY);
-        //             // esp_ble_gattc_write_char( spp_gattc_if,
-        //             //                           spp_conn_id,
-        //             //                           (db+SPP_IDX_SPP_DATA_RECV_VAL)->attribute_handle,
-        //             //                           event.size,
-        //             //                           temp,
-        //             //                           ESP_GATT_WRITE_TYPE_RSP,
-        //             //                           ESP_GATT_AUTH_REQ_NONE);
-        //             free(temp);
-        //         }
-        //         break;
-        //     default:
-        //         break;
-        //     }
-        // }
-        vTaskDelay(10);
-        //rtc_wdt_feed();
+// void uart_task(void *pvParameters){
+//     //TODO: verificare se posso eliminare questo task
+//     uart_event_t event;
+//     for (;;) {
+//         vTaskDelay(100);
+//     }
+//     vTaskDelete(NULL);
+// }
 
-    }
-    vTaskDelete(NULL);
-}
-
-static void spp_uart_init(void)
-{
+static void spp_uart_init(void){
     uart_config_t uart_config = {
         .baud_rate = 115200,
         .data_bits = UART_DATA_8_BITS,
@@ -612,67 +469,57 @@ static void spp_uart_init(void)
     uart_param_config(UART_NUM_0, &uart_config);
     //Set UART pins
     uart_set_pin(UART_NUM_0, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-    xTaskCreate(uart_task, "uTask", 2048, (void*)UART_NUM_0, 8, NULL);
+    //xTaskCreate(uart_task, "uTask", 2048, (void*)UART_NUM_0, 8, NULL);
 }
 
-
-
-
-void i2cTask(void *pvTaskCode)
-{
+void commTask(void *pvTaskCode){
     uint8_t lag=0;
     uint8_t temp[40];
-    float temperature =0 ;
+    while (1)
+    {
+        if(lag>10){
+            printf("\r===>DevID:%01d=TVCO:%05d eCOO:%06d Temp:%2.1f\n\r", DevID, TVCO, eCO2,temperature);
+            sprintf((char*)temp,"|%01d:%05d eCOO:%06d T:%2.1f\n\r", DevID, TVCO, eCO2,temperature);
+            esp_ble_gattc_write_char( spp_gattc_if,
+                                spp_conn_id,
+                                (db+SPP_IDX_SPP_DATA_RECV_VAL)->attribute_handle,
+                                35,
+                                temp,
+                                ESP_GATT_WRITE_TYPE_RSP,
+                                ESP_GATT_AUTH_REQ_NONE);
+            vTaskDelay(50 / portTICK_PERIOD_MS);lag = 0;
+        }else{lag++;vTaskDelay(50 / portTICK_PERIOD_MS);}
+    }
+}
+
+void measureTask(void *pvTaskCode){
+    uint8_t lag=0;
     while (1)
     {
         if(lag>10){
             if ((is_connect == true) && (db != NULL)) {
                 if (spg30_IAQmeasure(i2c_port, &TVCO, &eCO2) != ESP_OK)
-                {
-                    printf("\n-> ERRORE nell'IAQmeasure <-\n\n");
-                }
-                temperature = readTemp(0);
-                printf("\r===>D01=TVCO:%06d eCO2:%06d Temp:%2.1f\n\r", TVCO, eCO2,temperature);
-                sprintf((char*)temp,"TVCO:%06d eCO2:%06d Temp:%2.1f\n\r", TVCO, eCO2,temperature);
-                esp_ble_gattc_write_char( spp_gattc_if,
-                                    spp_conn_id,
-                                    (db+SPP_IDX_SPP_DATA_RECV_VAL)->attribute_handle,
-                                    35,
-                                    temp,
-                                    ESP_GATT_WRITE_TYPE_RSP,
-                                    ESP_GATT_AUTH_REQ_NONE);
-                //uint16_t attr_handle = 0x002a;
-                //vTaskDelay(500 / portTICK_PERIOD_MS);
-                }
+                {printf("\n-> ERRORE nell'IAQmeasure <-\n\n");}
+                t_readTemp(DATA_CELSIUS,&temperature);
+            }
             vTaskDelay(50 / portTICK_PERIOD_MS);lag = 0;
         }else
         {lag++;vTaskDelay(50 / portTICK_PERIOD_MS);}
     }
 }
 
-void gpioTask(void *pvTaskCode)
-{
-    while (1)
-    {
-        /* Blink off (output low) */
-        // printf("Turning off the LED\n");
-        gpio_set_level(BLINK_GPIO, 0);
+void gpioTask(void *pvTaskCode){
+    uint8_t led_sts = 0;
+    while (1){
+        gpio_set_level(BLINK_GPIO, led_sts);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-        /* Blink on (output high) */
-        //printf("Turning on the LED\n");
-        gpio_set_level(BLINK_GPIO, 1);
-        vTaskDelay(10 / portTICK_PERIOD_MS);
-        /* Blink off (output low) */
-        //printf("Turning off the LED\n");
-        gpio_set_level(BLINK_GPIO, 0);
+        led_sts !=led_sts;
     }
 }
 
 
+void app_main(void){
 
-
-void app_main(void)
-{
     peripheral_initTemp();
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     printf("\n\n\n----------------------------------------------\n");
@@ -683,15 +530,14 @@ void app_main(void)
     peripheral_initI2C();
     i2c_port = peripheral_getI2C_port();
 
-    if (spg30_init(i2c_port) != ESP_OK)
-    {
+    if (spg30_init(i2c_port) != ESP_OK)    {
         printf("\n-> ERRORE nell'INIT <-\n\n");
     }
 
     printf("->start measuring<-");
 
-    xTaskCreate(&i2cTask, "I2C_comm", 3000, NULL, 5, &task_i2c);
-
+    xTaskCreate(&measureTask, "MEASURE_comm", 3000, NULL, 5, &task_measure);
+    xTaskCreate(&commTask, "BT_comm", 3000, NULL, 5, &task_comm);
     xTaskCreate(&gpioTask, "GPIO_comm", 1000, NULL, 1, &task_gpio);
 
     esp_err_t ret;
@@ -706,14 +552,11 @@ void app_main(void)
         ESP_LOGE(GATTC_TAG, "%s enable controller failed: %s\n", __func__, esp_err_to_name(ret));
         return;
     }
-
     ret = esp_bt_controller_enable(ESP_BT_MODE_BLE);
     if (ret) {
         ESP_LOGE(GATTC_TAG, "%s enable controller failed: %s\n", __func__, esp_err_to_name(ret));
         return;
     }
-
-    //ESP_LOGI(GATTC_TAG, "%s init bluetooth\n", __func__);
     ret = esp_bluedroid_init();
     if (ret) {
         ESP_LOGE(GATTC_TAG, "%s init bluetooth failed: %s\n", __func__, esp_err_to_name(ret));
@@ -729,6 +572,4 @@ void app_main(void)
     spp_uart_init();
 
     return;
-
-
 }

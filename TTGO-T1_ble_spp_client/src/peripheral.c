@@ -36,5 +36,10 @@ void peripheral_initGPIO(){
 
 void peripheral_initTemp(){
     adc1_config_width(ADC_WIDTH_BIT_10);
-    adc1_config_channel_atten(ADC1_CHANNEL_0,ADC_ATTEN_DB_0);
+    //TEMPERATURE ADC CHANNEL
+    adc1_config_channel_atten(TEMPERATURE_ADC_CHANNEL,ADC_ATTEN_DB_0);
+    //CURRENT ADC CHANNEL
+    adc1_config_channel_atten(CURR_ADC_CHANNEL,ADC_ATTEN_DB_0);
+
+    adc_power_on();
 }
