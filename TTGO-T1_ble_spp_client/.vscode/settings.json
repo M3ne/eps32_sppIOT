@@ -7,6 +7,27 @@
         "initializer_list": "c",
         "utility": "c",
         "peripheral.h": "c",
-        "i2c.h": "c"
+        "i2c.h": "c",
+        "common.h": "c",
+        "stdint.h": "c",
+        "argtable3.h": "c",
+        "esp_gatts_api.h": "c",
+        "ct-sensor.h": "c",
+        "*.ipp": "c",
+        "*.tcc": "c",
+        "fstream": "c",
+        "istream": "c",
+        "ostream": "c",
+        "sstream": "c",
+        "future": "c",
+        "stdarg.h": "c",
+        "spg30.h": "c",
+        "temperature.h": "c",
+        "esp_bt_defs.h": "c",
+        "gpio.h": "c",
+        "adc.h": "c",
+        "cmath": "c",
+        "esp_adc_cal.h": "c",
+        "task.h": "c"
     }
 }
