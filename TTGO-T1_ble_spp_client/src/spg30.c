@@ -7,7 +7,7 @@ esp_err_t spg30_execCommand(i2c_port_t i2c_num, uint8_t command[],
                      uint8_t commandLength,
                      bool ack_mstr_req,
                      uint16_t delayms,
-                     uint16_t *readdata,
+                     uint8_t *readdata,
                      uint8_t readlen);
 esp_err_t spg30_IAQinit(i2c_port_t i2c_num);
 
@@ -276,8 +276,11 @@ esp_err_t spg30_setHumidity(i2c_port_t i2c_num, uint32_t absolute_humidity) {
     TODO: add description
     substitute bool with esp_err_t
    NOTE: including the CRC om readLem
+   src\spg30.c: In function 'spg30_init':
+src\spg30.c:36:68: warning: passing argument 6 of 'spg30_execCommand' from incompatible pointer type [-Wincompatible-pointer-types]
+   if ((err_detail=spg30_execCommand(i2c_num, command, 2, true, 10, serialnumber, 3)) != ESP_OK)
 */
-esp_err_t spg30_execCommand(i2c_port_t i2c_num, uint8_t command[], uint8_t commandLength, bool ack_mstr_req, uint16_t delayms, uint16_t *readdata, uint8_t readlen){
+esp_err_t spg30_execCommand(i2c_port_t i2c_num, uint8_t command[], uint8_t commandLength, bool ack_mstr_req, uint16_t delayms, uint8_t *readdata, uint8_t readlen){
     esp_err_t err_detail;
     i2c_cmd_handle_t i2c_cmd_w = i2c_cmd_link_create();
     if ((err_detail=i2c_master_start(i2c_cmd_w)) != ESP_OK)

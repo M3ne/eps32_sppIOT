@@ -1,10 +1,7 @@
 #ifndef SPG30_H
 #define SPG30_H
-#include "esp_err.h"
 #include "peripheral.h"
-#include <stdio.h>
-#include "stdint.h"
-#include "esp_task.h"
+
 
 
 // the i2c address
