@@ -28,6 +28,11 @@
         "adc.h": "c",
         "cmath": "c",
         "esp_adc_cal.h": "c",
-        "task.h": "c"
+        "task.h": "c",
+        "math.h": "c",
+        "rtc_wdt.h": "c",
+        "dht22.h": "c",
+        "esp_err.h": "c",
+        "esp_log.h": "c"
     }
 }

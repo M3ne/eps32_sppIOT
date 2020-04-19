@@ -545,6 +545,7 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                     int i=0;
                     int eCO2=0;
                     float temperature = 0;
+                    float humidity = 0;
                     char s1[20];
                     char s2[20];
                     char s3[20];                    
@@ -552,13 +553,14 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                     
                     //strcpy(buff,&p_data->write.value);
                     //printf("---- %s",(const char*)(p_data->write.value));
-                    sscanf((const char*)(p_data->write.value), "TVCO:%d eCO2:%d Temp:%f", &TVCO,&eCO2,&temperature);
-                    //char str[4]="TVCO";
+                    sscanf((const char*)(p_data->write.value), "TVCO:%d eCO2:%d Temp:%f Humd:%f", &TVCO,&eCO2,&temperature,&humidity);
+                    //char str[4]="TVCO";                      "TVCO:%d eCO2:%d Temp:%f Humd:%f\n\r", TVCO, eCO2,T_DHT22,H_DHT22
                     //if (strstr(&(p_data->write.value), &str) != NULL) {
                        
                         printf("D01=TVCO: %06d\r\n",TVCO);
                         printf("D01=eCO2: %06d\r\n",eCO2);
                         printf("D01=Tcel: %.1f\r\n",temperature);
+                        printf("D01=Humd: %.1f\r\n",humidity);
                         
                     //}else{
                     //    printf("D01=TVCO: failed\r\n");

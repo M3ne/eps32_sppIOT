@@ -10,6 +10,7 @@
 #include <driver/adc.h>
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+#include "peripheral.h"
 
 
 
@@ -19,14 +20,16 @@
 #define CALIBRATION_DATA_POINTS 100
 #define DELAY_BETWEEN_I2C_READS_MS 15
 #define MAX_NUMER_OF_RMS_CURRENT_DATA_POINTS_PER_CHANNEL 100
+#define CT_refVal 3300.0/2  //TODO measure value with ADC channel
+// uncomment current sensor used
 
 // uncomment current sensor used
 
 
 
-
 //bool is_debuging_mode = true;
 
+//bool is_debuging_mode = true;
 
 //  typedef enum {
 //     ADC1_CHANNEL_0 = 0, /*!< ADC1 channel 0 is GPIO36 */
@@ -40,7 +43,7 @@
 //     ADC1_CHANNEL_MAX,
 // } adc1_channel_t;
 
-#define CURR_ADC_CHANNEL ADC1_CHANNEL_2
+#define CURR_ADC_CHANNEL ADC1_CHANNEL_0
 
 
 

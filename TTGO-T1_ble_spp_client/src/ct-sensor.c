@@ -50,9 +50,8 @@ bool CTSensor_init(){
     _peak_current = sqrt(2) * _max_current_input;
     _sampling_data_points_count = _sampling_period_in_seconds * _sampling_frequency_in_hertz;
     _sampling_delay_ms = (uint16_t)roundf(1000 / _sampling_frequency_in_hertz);
-    adc1_config_width(ADC_WIDTH_BIT_12);
-    adc1_config_channel_atten(ADC1_CHANNEL_0,ADC_ATTEN_DB_0);
-    return true;
+    
+    return ESP_OK;
 }
 void CTSensor_setup(){
     _sum_of_current_rms_per_channel = 0.0;
@@ -88,7 +87,7 @@ void CTSensor_start_sampling(){
     float instant;
     float sum_of_squared_instants = 0;
 
-    printf("[SAMPLING] START #%d! \n", _current_rms_data_points_count);
+    // printf("[SAMPLING] START #%d! \n", _current_rms_data_points_count);
 
     for (uint16_t p = 0; p < _sampling_data_points_count; p++)
     {
@@ -107,12 +106,12 @@ void CTSensor_start_sampling(){
     CTSensor_add_current_rms_params_for(rms);
 
     _current_rms_data_points_count++;
-    printf("[SAMPLING] data point count so far: %d \n", _current_rms_data_points_count);
-    printf("------------------------------------\n");
+    // printf("[SAMPLING] data point count so far: %d \n", _current_rms_data_points_count);
+    // printf("------------------------------------\n");
 }
 
 void CTSensor_add_current_rms_params_for(float current_rms){
-    printf("Add current RMS: %f Amps to data points \n", current_rms);
+    // printf("Add current RMS: %f Amps to data points \n", current_rms);
 
     _rms_current_data_points_per_channel[_current_rms_data_points_count - 1] = current_rms;
     _sum_of_current_rms_per_channel+= current_rms;
@@ -153,9 +152,9 @@ float * CTSensor_get_rms_current_data_points_for(){
 }
 
 float CTSensor_get_current_rms_for_instants(float sum_of_squared_instants){
-    printf("Sum of squared instants: %f \n", sum_of_squared_instants);
-    printf("Sampling data points count: %d \n", _sampling_data_points_count);
-    printf("Peak current: %f \n", _peak_current);
+    // printf("Sum of squared instants: %f \n", sum_of_squared_instants);
+    // printf("Sampling data points count: %d \n", _sampling_data_points_count);
+    // printf("Peak current: %f \n", _peak_current);
 
     float rms = _peak_current * sqrt(sum_of_squared_instants / _sampling_data_points_count);
     bool should_filter_noise_out = rms < _current_noise_level;
