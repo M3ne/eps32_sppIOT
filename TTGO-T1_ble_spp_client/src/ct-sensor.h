@@ -44,7 +44,7 @@
 // } adc1_channel_t;
 
 #define CURR_ADC_CHANNEL ADC1_CHANNEL_0
-
+#define CURRref_ADC_CHANNEL ADC1_CHANNEL_3
 
 
 bool CTSensor_init();

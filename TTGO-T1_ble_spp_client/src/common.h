@@ -131,11 +131,11 @@ enum
 
 
 
-// static uint8_t heart_rate_service_uuid[16] = {
-//     /* LSB <--------------------------------------------------------------------------------> MSB */
-//     //first uuid, 16bit, [12],[13] is the value
-//     0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x18, 0x0D, 0x00, 0x00,
-// };
+static uint8_t heart_rate_service_uuid[16] = {
+    /* LSB <--------------------------------------------------------------------------------> MSB */
+    //first uuid, 16bit, [12],[13] is the value
+    0xfb, 0x34, 0x9b, 0x5f, 0x80, 0x00, 0x00, 0x80, 0x00, 0x10, 0x00, 0x00, 0x18, 0x0D, 0x00, 0x00,
+};
 
 static esp_ble_adv_data_t heart_rate_adv_config = {
     .set_scan_rsp = false,
@@ -244,5 +244,5 @@ static const uint8_t char_prop_read_write = ESP_GATT_CHAR_PROP_BIT_WRITE|ESP_GAT
       sizeof(uint8_t), sizeof(heart_ctrl_point), (uint8_t *)heart_ctrl_point}},  
 };
 
-
+*/
 #endif

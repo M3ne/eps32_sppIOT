@@ -541,31 +541,27 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
                     esp_log_buffer_char(GATTS_TABLE_TAG,(char *)(p_data->write.value),p_data->write.len);
 #else
                     //uart_write_bytes(UART_NUM_0, (char *)(p_data->write.value), p_data->write.len);
-                    int TVCO=0;
-                    int i=0;
+
+                    uint8_t devID = 0;
+                    uint16_t TVCO=0;
                     int eCO2=0;
                     float temperature = 0;
                     float humidity = 0;
-                    char s1[20];
-                    char s2[20];
-                    char s3[20];                    
-                    char buff[40];
+                    uint16_t watt=0;
+                    uint16_t wattHour=0;
+                    
                     
                     //strcpy(buff,&p_data->write.value);
                     //printf("---- %s",(const char*)(p_data->write.value));
-                    sscanf((const char*)(p_data->write.value), "TVCO:%d eCO2:%d Temp:%f Humd:%f", &TVCO,&eCO2,&temperature,&humidity);
-                    //char str[4]="TVCO";                      "TVCO:%d eCO2:%d Temp:%f Humd:%f\n\r", TVCO, eCO2,T_DHT22,H_DHT22
-                    //if (strstr(&(p_data->write.value), &str) != NULL) {
-                       
-                        printf("D01=TVCO: %06d\r\n",TVCO);
-                        printf("D01=eCO2: %06d\r\n",eCO2);
-                        printf("D01=Tcel: %.1f\r\n",temperature);
-                        printf("D01=Humd: %.1f\r\n",humidity);
-                        
-                    //}else{
-                    //    printf("D01=TVCO: failed\r\n");
-                    //    printf("D01=eCO2: failed\r\n");
-                    //}
+                    sscanf((const char*)(p_data->write.value), "=>D%d=V:%d C:%06d T:%2.1f H:%2.1f W:%4d Wh:%4d\n\r",&devID, &TVCO, &eCO2, &temperature, &humidity, &watt, &wattHour);
+
+                    printf("D%1d=TVCO: %06d\r\n",devID, TVCO);
+                    printf("D%1d=eCO2: %06d\r\n",devID, eCO2);
+                    printf("D%1d=Temp: %2.1f\r\n",devID, temperature);
+                    printf("D%1d=Humd: %2.1f\r\n",devID, humidity);
+                    printf("D%1d=Watt: %04d\r\n",devID, watt);
+                    printf("D%1d=WatH: %04d\r\n",devID, wattHour);                        
+
 #endif
                 }else{
                     //TODO:

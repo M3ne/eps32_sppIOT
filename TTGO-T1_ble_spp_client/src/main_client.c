@@ -20,10 +20,19 @@ static void esp_gattc_cb(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp
 static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_t gattc_if, esp_ble_gattc_cb_param_t *param);
 
 
+typedef struct{
+    uint16_t TVCO;
+    uint16_t eCO2;
+    float watt;
+    float wattHour;
+    float dht22_T;
+    float dht22_H;
+}CommData_t;
 
+CommData_t dataComm;
 i2c_port_t i2c_port;
 uint16_t TVCO, eCO2;
-float t_LM35,minCur,avgCur,maxCur,energyMeter,H_DHT22,T_DHT22;
+float minCur,avgCur,maxCur,energyMeter,H_DHT22,T_DHT22;
 uint16_t heart_rate_handle_table[HRS_IDX_NB];
 
 const int loopTimeCtl = 0;
@@ -31,6 +40,7 @@ TaskHandle_t task_i2c;
 TaskHandle_t task_CT;
 TaskHandle_t task_gpio;
 TaskHandle_t task_DHT22;
+TaskHandle_t task_comm;
 
 
 /* One gatt-based profile one app_id and one gattc_if, this array will store the gattc_if returned by ESP_GATTS_REG_EVT */
@@ -478,6 +488,8 @@ void uart_task(void *pvParameters)
         // }
         vTaskDelay(10);
         //rtc_wdt_feed();
+    }
+}
 
 static void spp_uart_init(void){
     uart_config_t uart_config = {
@@ -501,26 +513,7 @@ static void spp_uart_init(void){
 
 void commTask(void *pvTaskCode){
     uint8_t lag=0;
-    uint8_t temp[45];
-    
-    while (1){
-        if(lag>10){
-            printf("\r===>DevID:%01d=TVCO:%05d eCOO:%06d Temp:%2.1f\n\r", DevID, TVCO, eCO2,temperature);
-            sprintf((char*)temp,"|%01d:%05d eCOO:%06d T:%2.1f\n\r", DevID, TVCO, eCO2,temperature);
-            esp_ble_gattc_write_char( spp_gattc_if,
-                                spp_conn_id,
-                                (db+SPP_IDX_SPP_DATA_RECV_VAL)->attribute_handle,
-                                35,
-                                temp,
-                                ESP_GATT_WRITE_TYPE_RSP,
-                                ESP_GATT_AUTH_REQ_NONE);
-            vTaskDelay(50 / portTICK_PERIOD_MS);lag = 0;
-        }else{lag++;vTaskDelay(50 / portTICK_PERIOD_MS);}
-    }
-}
-
-void measureTask(void *pvTaskCode){
-    uint8_t lag=0;
+    uint8_t temp[51];
     while (1)
     {
         if(lag>10){
@@ -529,19 +522,17 @@ void measureTask(void *pvTaskCode){
                 {
                     printf("\n-> ERRORE nell'IAQmeasure <-\n\n");
                 }
-                //t_readTemp(0, &t_LM35);
-                printf("\r=>D%d=TVCO:%06d eCO2:%06d Temp:%2.1f MinCur:%2.1f AvgCurr:%2.1f MaxCur:%2.1f EnergyMeter:%2.1f \n\r",DevID, TVCO, eCO2,t_LM35,minCur,avgCur,maxCur,energyMeter);
-                CTSensor_print_channels_info();
-                sprintf((char*)temp,"TVCO:%06d eCO2:%06d Temp:%2.1f Humd:%2.1f\n\r", TVCO, eCO2,T_DHT22,H_DHT22);
+                printf("=>D%1d=V:%06d C:%06d T:%2.1f H:%2.1f W:%4d Wh:%4d\n\r",DevID, TVCO, eCO2, T_DHT22,H_DHT22,(uint16_t)dataComm.watt,(uint16_t)dataComm.wattHour);
+                sprintf((char*)temp,"=>D%1d=V:%06d C:%06d T:%2.1f H:%2.1f W:%4d Wh:%4d\n\r",DevID, TVCO, eCO2, T_DHT22,H_DHT22,(uint16_t)dataComm.watt,(uint16_t)dataComm.wattHour);
                 esp_ble_gattc_write_char( spp_gattc_if,
                                     spp_conn_id,
                                     (db+SPP_IDX_SPP_DATA_RECV_VAL)->attribute_handle,
-                                    45,
+                                    51,
                                     temp,
                                     ESP_GATT_WRITE_TYPE_RSP,
                                     ESP_GATT_AUTH_REQ_NONE);
-                //uint16_t attr_handle = 0x002a;
-                //vTaskDelay(500 / portTICK_PERIOD_MS);
+                uint16_t attr_handle = 0x002a;
+                vTaskDelay(500 / portTICK_PERIOD_MS);
                 }
             vTaskDelay(50 / portTICK_PERIOD_MS);lag = 0;
         }else
@@ -552,23 +543,22 @@ void measureTask(void *pvTaskCode){
 void CTTask(void *pvTaskCode){
     while(1){
         CTSensor_start_sampling();
-        minCur = CTSensor_get_min_current_rms_in_amps_for();
-        avgCur = CTSensor_get_avg_current_rms_in_amps_for();
-        maxCur =  CTSensor_get_max_current_rms_in_amps_for();
-        energyMeter = CTSensor_get_energy_in_watts_hour_for();
+        dataComm.watt = CTSensor_get_avg_power_in_watts_for();
+        dataComm.wattHour = CTSensor_get_energy_in_watts_hour_for();
         vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
 
 void gpioTask(void *pvTaskCode)
 {
+
     while (1)
     {
         /* Blink off (output low) */
         // printf("Turning off the LED\n");
         gpio_set_level(BLINK_GPIO, 0);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
-        led_sts !=led_sts;
+        //led_sts !=led_sts;
     }
 }
 
@@ -581,7 +571,7 @@ void DHT_task(void *pvParameter)
         //printf("T%2.1f H%2.1f",T_DHT22,H_DHT22);
         // -- wait at least 0.6 sec before reading again ------------
         // The interval of whole process must be beyond 2 seconds !!
-        vTaskDelay(600 / portTICK_RATE_MS);
+        vTaskDelay(5000 / portTICK_RATE_MS); 
     }
 }
 
@@ -613,10 +603,11 @@ void app_main(void)
 
     printf("->start measuring<-");
 
-    xTaskCreate(&i2cTask, "I2C_comm", 3000, NULL, 5, &task_i2c);
-    xTaskCreate(&CTTask, "CT_sns", 3000, NULL, 6, &task_CT);
-    xTaskCreate(&gpioTask, "GPIO_comm", 1024, NULL, 1, &task_gpio);
-    //xTaskCreate(&DHT_task, "DHT_task", 2048, NULL, 4, &task_DHT22);
+    //xTaskCreate(&i2cTask, "I2C_comm", 3000, NULL, 5, &task_i2c);
+    xTaskCreate(&CTTask, "CT_sns", 2048, NULL, 6, &task_CT);
+    xTaskCreate(&gpioTask, "GPIO_comm", 512, NULL, 1, &task_gpio);
+    xTaskCreate(&commTask, "measure_comm", 2048, NULL, 1, &task_comm);
+    xTaskCreate(&DHT_task, "DHT_task", 2048, NULL, 4, &task_DHT22);
     esp_err_t ret;
 
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));

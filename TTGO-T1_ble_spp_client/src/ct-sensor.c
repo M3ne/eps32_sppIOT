@@ -71,7 +71,7 @@ void CTSensor_print_calibration_info(){
 
     while (points)
     {
-        sum_of_raw_values_per_channel += adc1_get_raw(CURR_ADC_CHANNEL);
+        sum_of_raw_values_per_channel += ((float)adc1_get_raw(CURR_ADC_CHANNEL))*3.3/4096;
         vTaskDelay(DELAY_BETWEEN_I2C_READS_MS / portTICK_PERIOD_MS);
         points--;
     }
@@ -90,9 +90,10 @@ void CTSensor_start_sampling(){
     // printf("[SAMPLING] START #%d! \n", _current_rms_data_points_count);
 
     for (uint16_t p = 0; p < _sampling_data_points_count; p++)
-    {
+    {   
+        _ref_voltage_on_zero_current_per_channel = ((float)adc1_get_raw(CURRref_ADC_CHANNEL))*3.3/4096;
         float _ref_voltage_on_zero_current = _ref_voltage_on_zero_current_per_channel;
-        instant = (adc1_get_raw(CURR_ADC_CHANNEL) - _ref_voltage_on_zero_current) / _ref_voltage_on_zero_current;
+        instant = (((float)adc1_get_raw(CURR_ADC_CHANNEL))*3.3/4096 - _ref_voltage_on_zero_current) / _ref_voltage_on_zero_current;
         sum_of_squared_instants += instant * instant;
         vTaskDelay(DELAY_BETWEEN_I2C_READS_MS/ portTICK_PERIOD_MS);
         
@@ -182,11 +183,12 @@ void CTSensor_print_debug_info(){
 }
 
 void CTSensor_print_channels_info(){
-    printf("Raw value: %d V \n", adc1_get_raw(CURR_ADC_CHANNEL));
+    printf("Raw value: %f V \n",((float)adc1_get_raw(CURR_ADC_CHANNEL))*3.3/4096);
+    printf("Power avg: %f W \n",CTSensor_get_avg_power_in_watts_for());
     printf("Ref voltage on zero current: %f V \n", _ref_voltage_on_zero_current_per_channel);
-    printf("Min Current RMS: %f Amps \n", CTSensor_get_min_current_rms_in_amps_for());
-    printf("Avg Current RMS: %f Amps \n", CTSensor_get_avg_current_rms_in_amps_for());
-    printf("Max Current RMS: %f Amps \n", CTSensor_get_max_current_rms_in_amps_for());
-    printf("Energy: %f Watts-Hour \n", CTSensor_get_energy_in_watts_hour_for());
+    // printf("Min Current RMS: %f Amps \n", CTSensor_get_min_current_rms_in_amps_for());
+    // printf("Avg Current RMS: %f Amps \n", CTSensor_get_avg_current_rms_in_amps_for());
+    // printf("Max Current RMS: %f Amps \n", CTSensor_get_max_current_rms_in_amps_for());
+    // printf("Energy: %f Watts-Hour \n", CTSensor_get_energy_in_watts_hour_for());
     printf("------------------------------------\n");
 }
