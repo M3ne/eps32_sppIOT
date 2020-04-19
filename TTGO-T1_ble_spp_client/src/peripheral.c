@@ -32,9 +32,17 @@ i2c_port_t peripheral_getI2C_port(){
 void peripheral_initGPIO(){
     gpio_pad_select_gpio(BLINK_GPIO);
     gpio_set_direction(BLINK_GPIO, GPIO_MODE_OUTPUT);
+    gpio_pad_select_gpio(DHT_GPIO_CHANNEL);
 }
 
-void peripheral_initTemp(){
-    adc1_config_width(ADC_WIDTH_BIT_10);
-    adc1_config_channel_atten(ADC1_CHANNEL_0,ADC_ATTEN_DB_0);
+
+void peripheral_initADC(){
+    adc1_config_width(ADC_WIDTH_BIT_12);
+    //TEMPERATURE ADC CHANNEL
+    //adc1_config_channel_atten(TEMPERATURE_ADC_CHANNEL,ADC_ATTEN_DB_0);
+    //CURRENT ADC CHANNEL
+    adc1_config_channel_atten(CURR_ADC_CHANNEL,ADC_ATTEN_0db);
+
+    adc_power_on();
 }
+

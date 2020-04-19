@@ -81,11 +81,14 @@ static void gattc_profile_event_handler(esp_gattc_cb_event_t event, esp_gatt_if_
 
 i2c_port_t i2c_port;
 uint16_t TVCO, eCO2;
+float t_LM35,minCur,avgCur,maxCur,energyMeter,H_DHT22,T_DHT22;
 uint16_t heart_rate_handle_table[HRS_IDX_NB];
 
 const int loopTimeCtl = 0;
 TaskHandle_t task_i2c;
+TaskHandle_t task_CT;
 TaskHandle_t task_gpio;
+TaskHandle_t task_DHT22;
 
 
 /* One gatt-based profile one app_id and one gattc_if, this array will store the gattc_if returned by ESP_GATTS_REG_EVT */
@@ -557,7 +560,7 @@ void ble_client_appRegister(void)
 
 void uart_task(void *pvParameters)
 {
-    uart_event_t event;
+    //uart_event_t event;
     for (;;) {
         //Waiting for UART event.
         // if (xQueueReceive(spp_uart_queue, (void * )&event, (portTickType)portMAX_DELAY)) {
@@ -612,7 +615,7 @@ static void spp_uart_init(void)
     uart_param_config(UART_NUM_0, &uart_config);
     //Set UART pins
     uart_set_pin(UART_NUM_0, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE, UART_PIN_NO_CHANGE);
-    xTaskCreate(uart_task, "uTask", 2048, (void*)UART_NUM_0, 8, NULL);
+    //xTaskCreate(uart_task, "uTask", 2048, (void*)UART_NUM_0, 8, NULL);
 }
 
 
@@ -621,23 +624,23 @@ static void spp_uart_init(void)
 void i2cTask(void *pvTaskCode)
 {
     uint8_t lag=0;
-    uint8_t temp[40];
-    float temperature =0 ;
-    while (1)
-    {
+    uint8_t temp[45];
+    
+    while (1){
         if(lag>10){
             if ((is_connect == true) && (db != NULL)) {
                 if (spg30_IAQmeasure(i2c_port, &TVCO, &eCO2) != ESP_OK)
                 {
                     printf("\n-> ERRORE nell'IAQmeasure <-\n\n");
                 }
-                temperature = readTemp(0);
-                printf("\r===>D01=TVCO:%06d eCO2:%06d Temp:%2.1f\n\r", TVCO, eCO2,temperature);
-                sprintf((char*)temp,"TVCO:%06d eCO2:%06d Temp:%2.1f\n\r", TVCO, eCO2,temperature);
+                //t_readTemp(0, &t_LM35);
+                printf("\r=>D%d=TVCO:%06d eCO2:%06d Temp:%2.1f MinCur:%2.1f AvgCurr:%2.1f MaxCur:%2.1f EnergyMeter:%2.1f \n\r",DevID, TVCO, eCO2,t_LM35,minCur,avgCur,maxCur,energyMeter);
+                CTSensor_print_channels_info();
+                sprintf((char*)temp,"TVCO:%06d eCO2:%06d Temp:%2.1f Humd:%2.1f\n\r", TVCO, eCO2,T_DHT22,H_DHT22);
                 esp_ble_gattc_write_char( spp_gattc_if,
                                     spp_conn_id,
                                     (db+SPP_IDX_SPP_DATA_RECV_VAL)->attribute_handle,
-                                    35,
+                                    45,
                                     temp,
                                     ESP_GATT_WRITE_TYPE_RSP,
                                     ESP_GATT_AUTH_REQ_NONE);
@@ -647,6 +650,17 @@ void i2cTask(void *pvTaskCode)
             vTaskDelay(50 / portTICK_PERIOD_MS);lag = 0;
         }else
         {lag++;vTaskDelay(50 / portTICK_PERIOD_MS);}
+    }
+}
+
+void CTTask(void *pvTaskCode){
+    while(1){
+        CTSensor_start_sampling();
+        minCur = CTSensor_get_min_current_rms_in_amps_for();
+        avgCur = CTSensor_get_avg_current_rms_in_amps_for();
+        maxCur =  CTSensor_get_max_current_rms_in_amps_for();
+        energyMeter = CTSensor_get_energy_in_watts_hour_for();
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
     }
 }
 
@@ -668,12 +682,22 @@ void gpioTask(void *pvTaskCode)
     }
 }
 
-
-
+void DHT_task(void *pvParameter)
+{
+    while (1){
+        DHT22_errorHandler(DHT22_readDHT());        
+        DHT22_getHumidity(&H_DHT22);
+        DHT22_getTemperature(&T_DHT22);
+        //printf("T%2.1f H%2.1f",T_DHT22,H_DHT22);
+        // -- wait at least 0.6 sec before reading again ------------
+        // The interval of whole process must be beyond 2 seconds !!
+        vTaskDelay(600 / portTICK_RATE_MS);
+    }
+}
 
 void app_main(void)
 {
-    peripheral_initTemp();
+    peripheral_initADC();
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     printf("\n\n\n----------------------------------------------\n");
     printf("-----SPG30 CODE LIBRARY----\n");
@@ -681,19 +705,28 @@ void app_main(void)
 
     peripheral_initGPIO();
     peripheral_initI2C();
+    
     i2c_port = peripheral_getI2C_port();
 
     if (spg30_init(i2c_port) != ESP_OK)
     {
-        printf("\n-> ERRORE nell'INIT <-\n\n");
+        printf("\n-> ERRORE nell'INIT SPG30 Sensor <-\n\n");
     }
+    if (CTSensor_init() != ESP_OK)
+    {
+        printf("\n-> ERRORE nell'INIT CT Sensor <-\n\n");
+    }
+    CTSensor_setup();
+    CTSensor_calibrate(3.3/2);
+
+    DHT22_setup();
 
     printf("->start measuring<-");
 
     xTaskCreate(&i2cTask, "I2C_comm", 3000, NULL, 5, &task_i2c);
-
-    xTaskCreate(&gpioTask, "GPIO_comm", 1000, NULL, 1, &task_gpio);
-
+    xTaskCreate(&CTTask, "CT_sns", 3000, NULL, 6, &task_CT);
+    xTaskCreate(&gpioTask, "GPIO_comm", 1024, NULL, 1, &task_gpio);
+    //xTaskCreate(&DHT_task, "DHT_task", 2048, NULL, 4, &task_DHT22);
     esp_err_t ret;
 
     ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
@@ -729,6 +762,4 @@ void app_main(void)
     spp_uart_init();
 
     return;
-
-
 }
