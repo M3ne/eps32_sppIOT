@@ -542,25 +542,26 @@ static void gatts_profile_event_handler(esp_gatts_cb_event_t event, esp_gatt_if_
 #else
                     //uart_write_bytes(UART_NUM_0, (char *)(p_data->write.value), p_data->write.len);
 
-                    uint8_t devID = 0;
-                    uint16_t TVCO=0;
+                    int devID = 0;
+                    int TVCO=0;
                     int eCO2=0;
                     float temperature = 0;
                     float humidity = 0;
-                    uint16_t watt=0;
-                    uint16_t wattHour=0;
+                    int watt=0;
+                    int wattHour=0;
                     
                     
                     //strcpy(buff,&p_data->write.value);
                     //printf("---- %s",(const char*)(p_data->write.value));
-                    sscanf((const char*)(p_data->write.value), "=>D%d=V:%d C:%06d T:%2.1f H:%2.1f W:%4d Wh:%4d\n\r",&devID, &TVCO, &eCO2, &temperature, &humidity, &watt, &wattHour);
+                    sscanf((const char*)(p_data->write.value), "=>D%d=V:%d C:%d T:%f H:%f W:%d Wh:%d\n\r",&devID, &TVCO, &eCO2, &temperature, &humidity, &watt, &wattHour);
 
-                    printf("D%1d=TVCO: %06d\r\n",devID, TVCO);
-                    printf("D%1d=eCO2: %06d\r\n",devID, eCO2);
-                    printf("D%1d=Temp: %2.1f\r\n",devID, temperature);
-                    printf("D%1d=Humd: %2.1f\r\n",devID, humidity);
-                    printf("D%1d=Watt: %04d\r\n",devID, watt);
-                    printf("D%1d=WatH: %04d\r\n",devID, wattHour);                        
+                    printf("D%1d=TVCO: %06d\n\r",devID, TVCO);
+                    printf("D%1d=eCO2: %06d\n\r",devID, eCO2);
+                    printf("D%1d=Temp: %2.1f\n\r",devID, temperature);
+                    printf("D%1d=Humd: %2.1f\n\r",devID, humidity);
+                    printf("D%1d=Watt: %04d\n\r",devID, watt);
+                    printf("D%1d=WatH: %04d\n\r",devID, wattHour); 
+                    printf("======================================\n\r");                       
 
 #endif
                 }else{
