@@ -16,9 +16,9 @@
 
 
 
-#define DEBUG_MODE 1
+#define DEBUG_MODE 0
 #define CALIBRATION_DATA_POINTS 100
-#define DELAY_BETWEEN_I2C_READS_MS 15
+#define DELAY_BETWEEN_I2C_READS_MS 2
 #define MAX_NUMER_OF_RMS_CURRENT_DATA_POINTS_PER_CHANNEL 100
 #define CT_refVal 3300.0/2  //TODO measure value with ADC channel
 // uncomment current sensor used

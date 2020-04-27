@@ -14,7 +14,7 @@
 #include "esp_err.h"
 void DHT22_setup();
 // void setDHTgpio(int gpio);
-void DHT22_errorHandler(esp_err_t response);
+esp_err_t DHT22_errorHandler(esp_err_t response);
 esp_err_t DHT22_readDHT();
 void DHT22_getHumidity(float* humidityPointer);
 void DHT22_getTemperature(float * temperaturePointer);

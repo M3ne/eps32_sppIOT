@@ -48,23 +48,27 @@ void DHT22_getTemperature(float * temperaturePointer) { *temperaturePointer = te
 
 // == error handler ===============================================
 
-void DHT22_errorHandler(esp_err_t response)
+esp_err_t DHT22_errorHandler(esp_err_t response)
 {
     switch (response)
     {
     case ESP_ERR_TIMEOUT:
         ESP_LOGE(TAG, "Sensor Timeout\n");
+        return ESP_ERR_TIMEOUT;
         break;
 
     case ESP_ERR_INVALID_CRC:
         ESP_LOGE(TAG, "CheckSum error\n");
+        return ESP_ERR_INVALID_CRC;
         break;
 
     case DHT_OK:
+        return ESP_OK;
         break;
 
     default:
         ESP_LOGE(TAG, "Unknown error\n");
+        return ESP_ERR_NOT_SUPPORTED;
     }
 }
 
@@ -200,19 +204,18 @@ esp_err_t DHT22_readDHT()
             bitInx--;
     }
 
-    // == get humidity from Data[0] and Data[1] ==========================
 
-    humidity = dhtData[0];
-    humidity *= 0x100; // >> 8
-    humidity += dhtData[1];
-    humidity /= 10; // get the decimal
+    // == get humidity from Data[0] and Data[1] ==========================
+    float _newH = dhtData[0];
+    _newH *= 0x100; // >> 8
+    _newH += dhtData[1];
+    _newH /= 10; // get the decimal
 
     // == get temp from Data[2] and Data[3]
-
-    temperature = dhtData[2] & 0x7F;
-    temperature *= 0x100; // >> 8
-    temperature += dhtData[3];
-    temperature /= 10;
+    float _newT = dhtData[2] & 0x7F;
+    _newT *= 0x100; // >> 8
+    _newT += dhtData[3];
+    _newT /= 10;
 
     if (dhtData[2] & 0x80) // negative temp, brrr it's freezing
         temperature *= -1;
@@ -220,9 +223,13 @@ esp_err_t DHT22_readDHT()
     // == verify if checksum is ok ===========================================
     // Checksum is the sum of Data 8 bits masked out 0xFF
 
-    if (dhtData[4] == ((dhtData[0] + dhtData[1] + dhtData[2] + dhtData[3]) & 0xFF))
+    if (dhtData[4] == ((dhtData[0] + dhtData[1] + dhtData[2] + dhtData[3]) & 0xFF)){       
+    if((temperature-_newT<5 && _newT-temperature<5) || (_newT>5.0 || _newT<45.0))
+        humidity = _newH;
+        temperature = _newT;
+        
         return ESP_OK;
-
+    }
     else
         return ESP_ERR_INVALID_CRC;
 }

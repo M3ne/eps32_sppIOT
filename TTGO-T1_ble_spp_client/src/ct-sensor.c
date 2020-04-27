@@ -107,6 +107,10 @@ void CTSensor_start_sampling(){
     CTSensor_add_current_rms_params_for(rms);
 
     _current_rms_data_points_count++;
+    if(_current_rms_data_points_count>MAX_NUMER_OF_RMS_CURRENT_DATA_POINTS_PER_CHANNEL){
+        _sum_of_current_rms_per_channel = 0;
+        _current_rms_data_points_count = 1;
+    }
     // printf("[SAMPLING] data point count so far: %d \n", _current_rms_data_points_count);
     // printf("------------------------------------\n");
 }
@@ -137,7 +141,7 @@ float CTSensor_get_max_current_rms_in_amps_for(){
 }
 
 float CTSensor_get_energy_in_watts_hour_for(){
-    return _ref_voltage_input * _sum_of_current_rms_per_channel * _sampling_period_in_seconds / 3600;
+    return _ref_voltage_input * _sum_of_current_rms_per_channel * _sampling_period_in_seconds/_current_rms_data_points_count * 3600;
 }
 
 float CTSensor_get_voltage_in_volts_for(){

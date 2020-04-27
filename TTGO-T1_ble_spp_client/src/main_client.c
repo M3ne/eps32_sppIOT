@@ -545,18 +545,19 @@ void CTTask(void *pvTaskCode){
         CTSensor_start_sampling();
         dataComm.watt = CTSensor_get_avg_power_in_watts_for();
         dataComm.wattHour = CTSensor_get_energy_in_watts_hour_for();
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        vTaskDelay(1500 / portTICK_PERIOD_MS);
     }
 }
 
 void gpioTask(void *pvTaskCode)
 {
-
     while (1)
     {
         /* Blink off (output low) */
         // printf("Turning off the LED\n");
         gpio_set_level(BLINK_GPIO, 0);
+        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        gpio_set_level(BLINK_GPIO, 1);
         vTaskDelay(1000 / portTICK_PERIOD_MS);
         //led_sts !=led_sts;
     }
@@ -565,18 +566,25 @@ void gpioTask(void *pvTaskCode)
 void DHT_task(void *pvParameter)
 {
     while (1){
-        DHT22_errorHandler(DHT22_readDHT());        
-        DHT22_getHumidity(&H_DHT22);
-        DHT22_getTemperature(&T_DHT22);
-        //printf("T%2.1f H%2.1f",T_DHT22,H_DHT22);
-        // -- wait at least 0.6 sec before reading again ------------
-        // The interval of whole process must be beyond 2 seconds !!
-        vTaskDelay(5000 / portTICK_RATE_MS); 
+        if(DHT22_errorHandler(DHT22_readDHT())==ESP_OK){     
+            DHT22_getHumidity(&H_DHT22);
+            DHT22_getTemperature(&T_DHT22);
+            //printf("T%2.1f H%2.1f",T_DHT22,H_DHT22);
+            // -- wait at least 0.6 sec before reading again ------------
+            // The interval of whole process must be beyond 2 seconds !!
+        }
+        vTaskDelay(2000 / portTICK_RATE_MS); 
     }
 }
 
 void app_main(void)
 {
+    TVCO = 0;
+    eCO2 = 400;
+    T_DHT22 = 20.0;
+    H_DHT22 = 50.0;
+    dataComm.watt = 200;
+    dataComm.wattHour = 200;
     peripheral_initADC();
     vTaskDelay(1000 / portTICK_PERIOD_MS);
     printf("\n\n\n----------------------------------------------\n");
