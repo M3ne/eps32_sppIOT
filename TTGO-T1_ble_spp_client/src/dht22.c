@@ -25,13 +25,13 @@ void setDHTgpio(int gpio);
 int DHTgpio = DHT_GPIO_CHANNEL;
 float humidity = -1.1;
 float temperature = -1.1;
-
+bool first_add;
 
 void DHT22_setup(){
     setDHTgpio(DHT_GPIO_CHANNEL); // my default DHT pin = 4
     humidity = 0.;
     temperature = 0.;
-
+    first_add = true;
 }
 
 // == set the DHT used pin=========================================
@@ -218,16 +218,16 @@ esp_err_t DHT22_readDHT()
     _newT /= 10;
 
     if (dhtData[2] & 0x80) // negative temp, brrr it's freezing
-        temperature *= -1;
+        _newT *= -1;
 
     // == verify if checksum is ok ===========================================
     // Checksum is the sum of Data 8 bits masked out 0xFF
 
     if (dhtData[4] == ((dhtData[0] + dhtData[1] + dhtData[2] + dhtData[3]) & 0xFF)){       
-    if((temperature-_newT<5 && _newT-temperature<5) || (_newT>5.0 || _newT<45.0))
+    if((temperature-_newT<5 && _newT-temperature<5) || first_add)
         humidity = _newH;
         temperature = _newT;
-        
+        first_add = false;
         return ESP_OK;
     }
     else
